@@ -1,5 +1,5 @@
 module.exports = {
-    base: '/',
+    base: '/vue-learn/',
     dest: './docs/',
     title: 'vue-learn',
     markdown: {
