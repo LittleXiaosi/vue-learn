@@ -10,7 +10,7 @@
 
 ## 枯燥的简易代码
 
-这是来自Vue官网的对于响应式的核心代码的示例：
+这是来自Vue官网的对于响应式的核心代码的示例：<https://github.com/LittleXiaosi/vue-learn/blob/master/src/core/reactive-defineProperty.js>
 
 ```js
   let data = { price: 5, quantity: 2 }
