@@ -16,6 +16,7 @@ module.exports = {
         sidebar: [
             '/',
             'reactive-in-vue'
-        ]
+        ],
+        sidebarDepth: 3,
     }
 };
