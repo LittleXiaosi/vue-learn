@@ -63,7 +63,7 @@ let data = vm.$options.data
 ...
 proxy(vm, `_data`, key)
 ...
-observe(data, true /* asRootData */)
+observe(data, true /* asRootData */)		// go to src/core/observer/index.js
 ```
 
 拿到data参数之后，通过observe方法开始给data内的数据添加响应式处理。
@@ -140,4 +140,262 @@ vm.$el = vm.__patch__(prevVnode, vnode)
 
 在这个地方，处理真正的渲染成HTML节点并且挂在对应的真实dom上面。
 
-执行完所有的这一切，第一次生命周期就结束了。这里会返回一个VM，然后我们重新回到响应式内部看看代码，因为Watcher虽然初始化完了，但是我们的`updateComponent`只执行完了第一次计算，之后的计算就要回到响应式来触发了。
+执行完所有的这一切，第一次生命周期就结束了。这里会返回一个VM，然后我们重新回到响应式内部看看代码，因为Watcher虽然初始化完了，但是我们的`updateComponent`只执行完了第一次计算(其实已经完成了响应式收集)，之后的计算就要回到响应式来触发了。
+
+
+
+### src/core/observer/
+
+这部分相对比较复杂，这里面主要是响应式的定义代码，但是需要注意的是，这里面只是**定义**了响应式对象，真正要执行起来是需要new Watcher之后，getter和setter触发才行
+
+```js
+//index.js
+ob = new Observer(value)		// value === data
+```
+
+初始化data响应式时候，代码执行顺序是从`src/core/instance/state.js`文件来的，所以当前的`value==data==vm.$options.data`
+
+```js
+//index.js
+const keys = Object.keys(obj)					//obj==value
+for (let i = 0; i < keys.length; i++) {
+	defineReactive(obj, keys[i])
+}
+```
+
+这里就是遍历data的属性，分别给每个属性添加响应式处理。
+
+```js
+//index.js
+...
+const dep = new Dep()
+...
+const getter = property && property.get
+const setter = property && property.set
+...
+Object.defineProperty(obj, key, {
+  	enumerable: true,
+    configurable: true,
+  	get:function(){...},
+    set:function(){...}     
+})
+```
+
+执行到到这里，才是真正开始定义响应式数据，现在我们需要分别看一下get和set的处理
+
+> 这里每一个dep其实对应的是每一个data内的属性，因为遍历的时候每次都要重新实例化新的dep
+
+#### get：depend
+
+```js
+// index.js
+get: function reactiveGetter () {
+      const value = getter ? getter.call(obj) : val
+      if (Dep.target) {
+        dep.depend()
+        ...
+      }
+      return value
+},
+```
+
+这里就是真正的data数据的get定义，在这里主要做的就是执行`dep.depend()`，也就是把对应的watcher添加到dep里面，dep会收集所有和当前属性相关的watcher，是一个数组；
+
+> 这里面有个判断`Dep.target`，这个`target`值其实就是一个当前的`Watcher`，在初始化并且用户没有额外添加自己的watch的情况下，这个watcher就是`RenderWatcher`，所有的dep在初始化的时候都会添加同一个`RenderWatcher`。这是因为之前我们执行`$mount`的时候，执行了`new Watcher`，具体细节我们就需要从下面的`new Watcher`细节看起了
+
+#### set：notify
+
+```js
+// index.js
+set: function reactiveSetter (newVal) {
+  const value = getter ? getter.call(obj) : val
+  /* eslint-disable no-self-compare */
+  if (newVal === value || (newVal !== newVal && value !== value)) {
+    return
+  }
+ ...
+  // #7981: for accessor properties without setter
+  if (getter && !setter) return
+  if (setter) {
+    setter.call(obj, newVal)
+  } else {
+    val = newVal
+  }
+	...
+  dep.notify()
+}
+```
+
+这里是真正的data的set定义，主要目的就是执行`dep.notify()`并且更新一下数据。这里有几个比较特别的地方，需要额外注意一下：
+
++ `newVal === value `：这里判断了新旧数据，所以只有在新旧数据不同的时候，才会执行watcher的计算，所以Vue的Watcher本质上是一个差异更新。
++ `(newVal !== newVal && value !== value)`：这里是判断`NaN===NaN`为false引起的bug
++ `setter.call`：用户可以自行改动setter来修改数据计算（但是比较少见这种处理）
+
+#### depend的执行
+
+好的，看完了set和get的定义，还记得我们的代码真正执行的地方是在new Watcher的时候么，我们现在回过头看一下，第一次执行new Watcher的时候，执行了什么？
+
+```js
+//watcher.js
+ this.value = this.lazy ? undefined : this.get()
+```
+
+`watcher`在初始化之后，会执行一`this.get()`次获取`this.value`数据，而这个`this.value`就是当前`watcher`计算出来的值，
+
+> 1. 而在当前的例子中，当前的`watcher`就是默认的`RenderWatcher`，这个`watcher`的`value`计算值是空的，没有返回值。
+> 2. 如果`this.value`有值，那就是user watcher的计算的结果，就是我们监听的watcher的nv；
+
+```js
+//watcher.js
+get () {
+  pushTarget(this)
+  let value
+  const vm = this.vm
+  try {
+    value = this.getter.call(vm, vm)
+  } catch (e) {
+   ...
+  } finally {
+    ...
+    popTarget()
+    this.cleanupDeps()
+  }
+  return value
+}
+```
+
+这里就是执行了watcher的get，
+
++ `pushTarget(this)，popTarget()`：这两个方法是把watcher添加进入dep里面，具体定义在`dep.js`里面
++ `value = this.getter.call(vm, vm)`：这里是执行了Watcher内的计算，得到新的的Value（或者只是触发依赖）对于渲染watcher而言，`this.getter`就是上文的`updateComponent`，`updateComponent`的内部我们先不深究，但是这个函数的执行，就会触发到所有的`data`内的属性的`get`。具体执行就是`dep.depend`
++  `this.cleanupDeps()`：本质上是更新订阅（当然也会清除旧的订阅）不影响主要的逻辑，主要处理的是类似v-if的情况，避免额外的计算，保持依赖都是最新值。
+
+```js
+//dep.js
+Dep.target = null
+const targetStack = []
+
+export function pushTarget (target: ?Watcher) {
+  targetStack.push(target)
+  Dep.target = target
+}
+
+export function popTarget () {
+  targetStack.pop()
+  Dep.target = targetStack[targetStack.length - 1]
+}
+```
+
+还记得我们上面在get内需要判断 `Dep.target`么，就是在这里产生值的，在我们当前流程中，`target`就是`RenderWatcher`。
+
+```js
+//dep.js
+depend () {
+  if (Dep.target) {
+    Dep.target.addDep(this)					//Dep.target===watcher，this===dep
+  }
+}
+```
+
+这里执行的就是`dep.depend`，所以本质上，还是执行了`watcher`的`addDep()`方法：
+
+```js
+//watcher.js   from：dep.depend()  ==》  watcher.addDep(dep)
+addDep (dep: Dep) {
+  const id = dep.id
+  if (!this.newDepIds.has(id)) {
+    this.newDepIds.add(id)
+    this.newDeps.push(dep)
+    if (!this.depIds.has(id)) {
+      dep.addSub(this)
+    }
+  }
+}
+```
+
+这里有一段比较复杂的判断，主要是因为之前我们提到了`this.cleanupDeps`，所以每次的依赖都是重新收集的，每次`newDeps`都是新的，
+
+>  这里把`dep`添加进了`watcher.deps`里面（`cleanupDeps`的时候，把`newDeps`赋值给了`deps`）
+
++ 初始化：初始化的时候，`newDepIds`和`depIds`都是空的，所以就直接执行了`dep.addSub(this)`
++ 数据变化：`newDepIds`会保持最新收集到的状态，`depIds`会把缺少的那一个添加进入`dep`
+
+我们继续看`addSub`又发生了什么
+
+```js
+//dep.js from: dep.addSub(this) ==》 dep.addSub(watcher)
+addSub (sub: Watcher) {
+  this.subs.push(sub)
+}
+```
+
+> 这里把`watcher`添加进入了`dep.subs`里面
+
+所以这个地方需要稍微注意一下，我们在原理展示里面没有这么复杂，只需要subs收集watcher就可以了，但是Vue真实处理的时候是双向收集的，dep收集watcher，而watcher也收集dep。
+
+#### notify的执行
+
+我们到目前为止已经完成了依赖收集的过程，现在我们再来看看派发过程是怎么处理的。在数据有修改的时候，实际上是触发了set的`notify()`
+
+```js
+ //dep.js.  from : dep.notify()
+notify () {
+  const subs = this.subs.slice()
+	...
+  for (let i = 0, l = subs.length; i < l; i++) {
+    subs[i].update()
+  }
+}
+```
+
+还记得`subs`里面放的都是`watcher`么？所以接下来又回到`watcher`
+
+```JS
+//watcher.js   
+update () {
+   ...
+   queueWatcher(this)   
+}
+```
+
+接下来就到了另一个文件
+
+```js
+//scheduler.js
+
+const queue: Array<Watcher> = []
+let has: { [key: number]: ?true } = {}
+let flushing = false
+
+export function queueWatcher (watcher: Watcher) {
+  const id = watcher.id
+  if (has[id] == null) {
+    has[id] = true
+    if (!flushing) {
+      queue.push(watcher)
+    } else {
+      // if already flushing, splice the watcher based on its id
+      // if already past its id, it will be run next immediately.
+      let i = queue.length - 1
+      while (i > index && queue[i].id > watcher.id) {
+        i--
+      }
+      queue.splice(i + 1, 0, watcher)
+    }
+    // queue the flush
+    if (!waiting) {
+      waiting = true
+      ...
+      nextTick(flushSchedulerQueue)
+    }
+  }
+}
+```
+
+这里有几个比较复杂的注意项：
+
++ `has[id]`：这个判断是为了保证，一个watcher对象被添加一次。举个例子，我们一个组件只有一个renderWatcher，这一个RenderWatcher在组件内data在多处修改时，应该只需要计算一次。
++ `flushing`：状态值，当前是否正在进行watcher的计算
++ `queue`：存储所有需要计算的watcher
++ `nextTick`：下一个`tick`再执行这些`watcher`
