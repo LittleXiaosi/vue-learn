@@ -7,7 +7,7 @@
     <meta name="description" content="">
     
     
-    <link rel="preload" href="/vue-learn/assets/css/0.styles.d467352b.css" as="style"><link rel="preload" href="/vue-learn/assets/js/app.10ce8ede.js" as="script"><link rel="preload" href="/vue-learn/assets/js/2.98137049.js" as="script"><link rel="preload" href="/vue-learn/assets/js/4.77d35eab.js" as="script"><link rel="prefetch" href="/vue-learn/assets/js/3.af2f3518.js"><link rel="prefetch" href="/vue-learn/assets/js/5.c90b2ea4.js"><link rel="prefetch" href="/vue-learn/assets/js/6.a98a30d6.js"><link rel="prefetch" href="/vue-learn/assets/js/7.97760cdd.js">
+    <link rel="preload" href="/vue-learn/assets/css/0.styles.d467352b.css" as="style"><link rel="preload" href="/vue-learn/assets/js/app.d84f0145.js" as="script"><link rel="preload" href="/vue-learn/assets/js/2.98137049.js" as="script"><link rel="preload" href="/vue-learn/assets/js/4.3f48630c.js" as="script"><link rel="prefetch" href="/vue-learn/assets/js/3.af2f3518.js"><link rel="prefetch" href="/vue-learn/assets/js/5.c90b2ea4.js"><link rel="prefetch" href="/vue-learn/assets/js/6.a98a30d6.js"><link rel="prefetch" href="/vue-learn/assets/js/7.97760cdd.js">
     <link rel="stylesheet" href="/vue-learn/assets/css/0.styles.d467352b.css">
   </head>
   <body>
@@ -108,13 +108,15 @@ Object<span class="token punctuation">.</span><span class="token function">defin
   <span class="token punctuation">}</span> <span class="token keyword">catch</span> <span class="token punctuation">(</span>e<span class="token punctuation">)</span> <span class="token punctuation">{</span>
    <span class="token operator">...</span>
   <span class="token punctuation">}</span> <span class="token keyword">finally</span> <span class="token punctuation">{</span>
-    <span class="token operator">...</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">.</span>deep<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token function">traverse</span><span class="token punctuation">(</span>value<span class="token punctuation">)</span>
+    <span class="token punctuation">}</span>
     <span class="token function">popTarget</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
     <span class="token keyword">this</span><span class="token punctuation">.</span><span class="token function">cleanupDeps</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
   <span class="token punctuation">}</span>
   <span class="token keyword">return</span> value
 <span class="token punctuation">}</span>
-</code></pre></div><p>这里就是执行了watcher的get，</p> <ul><li><code>pushTarget(this)，popTarget()</code>：这两个方法是把watcher添加进入dep里面，具体定义在<code>dep.js</code>里面</li> <li><code>value = this.getter.call(vm, vm)</code>：这里是执行了Watcher内的计算，得到新的的Value（或者只是触发依赖）对于渲染watcher而言，<code>this.getter</code>就是上文的<code>updateComponent</code>，<code>updateComponent</code>的内部我们先不深究，但是这个函数的执行，就会触发到所有的<code>data</code>内的属性的<code>get</code>。具体执行就是<code>dep.depend</code></li> <li><code>this.cleanupDeps()</code>：本质上是更新订阅（当然也会清除旧的订阅）不影响主要的逻辑，主要处理的是类似v-if的情况，避免额外的计算，保持依赖都是最新值。</li></ul> <div class="language-js extra-class"><pre class="language-js"><code><span class="token comment">//dep.js</span>
+</code></pre></div><p>这里就是执行了watcher的get，</p> <ul><li><code>pushTarget(this)，popTarget()</code>：这两个方法是把watcher添加进入dep里面，具体定义在<code>dep.js</code>里面</li> <li><code>value = this.getter.call(vm, vm)</code>：这里是执行了Watcher内的计算，得到新的的Value（或者只是触发依赖）对于渲染watcher而言，<code>this.getter</code>就是上文的<code>updateComponent</code>，<code>updateComponent</code>的内部我们先不深究，但是这个函数的执行，就会触发到所有的<code>data</code>内的属性的<code>get</code>。具体执行就是<code>dep.depend</code></li> <li><code>this.cleanupDeps()</code>：本质上是更新订阅（当然也会清除旧的订阅）不影响主要的逻辑，主要处理的是类似v-if的情况，避免额外的计算，保持依赖都是最新值。</li> <li><code>this.deep</code>：这个地方是处理对象监听的，具体细节请看Deep处理</li></ul> <div class="language-js extra-class"><pre class="language-js"><code><span class="token comment">//dep.js</span>
 Dep<span class="token punctuation">.</span>target <span class="token operator">=</span> <span class="token keyword">null</span>
 <span class="token keyword">const</span> targetStack <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>
 
@@ -148,7 +150,7 @@ Dep<span class="token punctuation">.</span>target <span class="token operator">=
 <span class="token function">addSub</span> <span class="token punctuation">(</span><span class="token parameter">sub<span class="token punctuation">:</span> Watcher</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
   <span class="token keyword">this</span><span class="token punctuation">.</span>subs<span class="token punctuation">.</span><span class="token function">push</span><span class="token punctuation">(</span>sub<span class="token punctuation">)</span>
 <span class="token punctuation">}</span>
-</code></pre></div><blockquote><p>这里把<code>watcher</code>添加进入了<code>dep.subs</code>里面</p></blockquote> <p>所以这个地方需要稍微注意一下，我们在原理展示里面没有这么复杂，只需要subs收集watcher就可以了，但是Vue真实处理的时候是双向收集的，dep收集watcher，而watcher也收集dep。</p> <h4 id="notify的执行"><a href="#notify的执行" class="header-anchor">#</a> notify的执行</h4> <p>我们到目前为止已经完成了依赖收集的过程，现在我们再来看看派发过程是怎么处理的。在数据有修改的时候，实际上是触发了set的<code>notify()</code></p> <div class="language-js extra-class"><pre class="language-js"><code> <span class="token comment">//dep.js.  from : dep.notify()</span>
+</code></pre></div><blockquote><p>这里把<code>watcher</code>添加进入了<code>dep.subs</code>里面</p></blockquote> <p>所以这个地方需要稍微注意一下，我们在原理展示里面没有这么复杂，只需要subs收集watcher就可以了，但是Vue真实处理的时候是双向收集的，dep收集watcher，而watcher也收集dep。</p> <p>dep.subs收集watcher是因为任何一个属性的修改，都需要触发所有的计算。</p> <p>watcher.deps收集dep是因为任何的的重新计算，要触发对应回调函数。</p> <h4 id="notify的执行"><a href="#notify的执行" class="header-anchor">#</a> notify的执行</h4> <p>我们到目前为止已经完成了依赖收集的过程，现在我们再来看看派发过程是怎么处理的。在数据有修改的时候，实际上是触发了set的<code>notify()</code></p> <div class="language-js extra-class"><pre class="language-js"><code> <span class="token comment">//dep.js.  from : dep.notify()</span>
 <span class="token function">notify</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
   <span class="token keyword">const</span> subs <span class="token operator">=</span> <span class="token keyword">this</span><span class="token punctuation">.</span>subs<span class="token punctuation">.</span><span class="token function">slice</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
 	<span class="token operator">...</span>
@@ -174,8 +176,6 @@ Dep<span class="token punctuation">.</span>target <span class="token operator">=
     <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>flushing<span class="token punctuation">)</span> <span class="token punctuation">{</span>
       queue<span class="token punctuation">.</span><span class="token function">push</span><span class="token punctuation">(</span>watcher<span class="token punctuation">)</span>
     <span class="token punctuation">}</span> <span class="token keyword">else</span> <span class="token punctuation">{</span>
-      <span class="token comment">// if already flushing, splice the watcher based on its id</span>
-      <span class="token comment">// if already past its id, it will be run next immediately.</span>
       <span class="token keyword">let</span> i <span class="token operator">=</span> queue<span class="token punctuation">.</span>length <span class="token operator">-</span> <span class="token number">1</span>
       <span class="token keyword">while</span> <span class="token punctuation">(</span>i <span class="token operator">&gt;</span> index <span class="token operator">&amp;&amp;</span> queue<span class="token punctuation">[</span>i<span class="token punctuation">]</span><span class="token punctuation">.</span>id <span class="token operator">&gt;</span> watcher<span class="token punctuation">.</span>id<span class="token punctuation">)</span> <span class="token punctuation">{</span>
         i<span class="token operator">--</span>
@@ -190,9 +190,62 @@ Dep<span class="token punctuation">.</span>target <span class="token operator">=
     <span class="token punctuation">}</span>
   <span class="token punctuation">}</span>
 <span class="token punctuation">}</span>
-</code></pre></div><p>这里有几个比较复杂的注意项：</p> <ul><li><code>has[id]</code>：这个判断是为了保证，一个watcher对象被添加一次。举个例子，我们一个组件只有一个renderWatcher，这一个RenderWatcher在组件内data在多处修改时，应该只需要计算一次。</li> <li><code>flushing</code>：状态值，当前是否正在进行watcher的计算</li> <li><code>queue</code>：存储所有需要计算的watcher</li> <li><code>nextTick</code>：下一个<code>tick</code>再执行这些<code>watcher</code></li></ul></div> <footer class="page-edit"><!----> <!----></footer> <div class="page-nav"><p class="inner"><span class="prev">
+</code></pre></div><p>这里有几个比较复杂的注意项：</p> <ul><li><code>has[id]</code>：这个判断是为了保证，一个<code>watcher</code>对象被添加一次。举个例子，我们一个组件只有一个<code>renderWatcher</code>，这一个<code>RenderWatcher</code>在组件内<code>data</code>在多处修改时，应该只需要计算一次。</li> <li><code>flushing</code>：状态值，当前是否正在进行<code>watcher</code>的计算，这个地方如果为<code>false</code>，说明正在计算，新增加的<code>watcher</code>会经过排序，插入到<code>queue</code>里面</li> <li><code>queue</code>：存储所有需要计算的watcher</li> <li><code>nextTick</code>：下一个<code>tick</code>再执行这些<code>watcher</code>，默认情况下，执行的就是异步刷新</li></ul> <div class="language-JS extra-class"><pre class="language-js"><code><span class="token comment">//scheduler.js </span>
+
+<span class="token keyword">function</span> <span class="token function">flushSchedulerQueue</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+  currentFlushTimestamp <span class="token operator">=</span> <span class="token function">getNow</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+  flushing <span class="token operator">=</span> <span class="token boolean">true</span>
+  <span class="token keyword">let</span> watcher<span class="token punctuation">,</span> id
+
+  queue<span class="token punctuation">.</span><span class="token function">sort</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token parameter">a<span class="token punctuation">,</span> b</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> a<span class="token punctuation">.</span>id <span class="token operator">-</span> b<span class="token punctuation">.</span>id<span class="token punctuation">)</span>
+
+  <span class="token comment">// do not cache length because more watchers might be pushed</span>
+  <span class="token comment">// as we run existing watchers</span>
+  <span class="token keyword">for</span> <span class="token punctuation">(</span>index <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">;</span> index <span class="token operator">&lt;</span> queue<span class="token punctuation">.</span>length<span class="token punctuation">;</span> index<span class="token operator">++</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    watcher <span class="token operator">=</span> queue<span class="token punctuation">[</span>index<span class="token punctuation">]</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>watcher<span class="token punctuation">.</span>before<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+      watcher<span class="token punctuation">.</span><span class="token function">before</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+    <span class="token punctuation">}</span>
+    id <span class="token operator">=</span> watcher<span class="token punctuation">.</span>id
+    has<span class="token punctuation">[</span>id<span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token keyword">null</span>
+    watcher<span class="token punctuation">.</span><span class="token function">run</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+    <span class="token operator">...</span>
+  <span class="token punctuation">}</span>
+	<span class="token operator">...</span>
+  <span class="token function">resetSchedulerState</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+  <span class="token operator">...</span>
+<span class="token punctuation">}</span>
+</code></pre></div><p>这里就是执行对于queue进行遍历，中间有几点比较值得注意</p> <ul><li><code>queue.sort</code>：不论是这个阶段，还是之前插入阶段，watcher的排序都是保证从小到大的，这是因为</li> <li>组件渲染是先父后子，所以id小的是父组件，prop传参也是从父到子，watcher计算顺序需要与数据流动顺序保持一致，不然可能导致子组件的响应式计算值是有问题的。</li> <li><code>RenderWatcher</code>是在<code>$mount</code>阶段实例化的，但是<code>UserWatcher</code>是在<code>initWatcher</code>阶段产生的，所以<code>UserWatcher</code>的<code>id</code>会比<code>RenderWatcher</code>小，优先计算<code>UserWatcher</code>也是为了保证<code>RenderWatcher</code>计算出来的最终渲染数据正确</li> <li>如果一个组件在父组件执行阶段被销毁了，这个组件下的所有watcher的active属性就会被设置为false，之后的watcher都不会再进行计算了</li> <li><code>watcher.before()</code>：在<code>new Watcher</code>的时候，传入的参数，默认的<code>RenderWatcher</code>会有这个参数，是<code>beforeUpdate</code>钩子函数</li> <li><code>has[id] = null</code>，  <code>resetSchedulerState()</code>：清除当前这个tick里面的所有的需要计算的watcher，所以当下次数据变化的时候，所有的watcher又是新的一轮了。</li></ul> <div class="language-js extra-class"><pre class="language-js"><code><span class="token comment">// watcher.js		from:watcher.run()</span>
+  <span class="token function">run</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">.</span>active<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+      <span class="token keyword">const</span> value <span class="token operator">=</span> <span class="token keyword">this</span><span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+      <span class="token keyword">if</span> <span class="token punctuation">(</span>value <span class="token operator">!==</span> <span class="token keyword">this</span><span class="token punctuation">.</span>value <span class="token operator">||</span><span class="token function">isObject</span><span class="token punctuation">(</span>value<span class="token punctuation">)</span> <span class="token operator">||</span><span class="token keyword">this</span><span class="token punctuation">.</span>deep<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token comment">// set new value</span>
+        <span class="token keyword">const</span> oldValue <span class="token operator">=</span> <span class="token keyword">this</span><span class="token punctuation">.</span>value
+        <span class="token keyword">this</span><span class="token punctuation">.</span>value <span class="token operator">=</span> value
+        <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">.</span>user<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+          <span class="token keyword">try</span> <span class="token punctuation">{</span>
+            <span class="token keyword">this</span><span class="token punctuation">.</span><span class="token function">cb</span><span class="token punctuation">.</span><span class="token function">call</span><span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">.</span>vm<span class="token punctuation">,</span> value<span class="token punctuation">,</span> oldValue<span class="token punctuation">)</span>
+          <span class="token punctuation">}</span> <span class="token keyword">catch</span> <span class="token punctuation">(</span>e<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+            <span class="token function">handleError</span><span class="token punctuation">(</span>e<span class="token punctuation">,</span> <span class="token keyword">this</span><span class="token punctuation">.</span>vm<span class="token punctuation">,</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">callback for watcher &quot;</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span><span class="token keyword">this</span><span class="token punctuation">.</span>expression<span class="token interpolation-punctuation punctuation">}</span></span><span class="token string">&quot;</span><span class="token template-punctuation string">`</span></span><span class="token punctuation">)</span>
+          <span class="token punctuation">}</span>
+        <span class="token punctuation">}</span> <span class="token keyword">else</span> <span class="token punctuation">{</span>
+          <span class="token keyword">this</span><span class="token punctuation">.</span><span class="token function">cb</span><span class="token punctuation">.</span><span class="token function">call</span><span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">.</span>vm<span class="token punctuation">,</span> value<span class="token punctuation">,</span> oldValue<span class="token punctuation">)</span>
+        <span class="token punctuation">}</span>
+      <span class="token punctuation">}</span>
+    <span class="token punctuation">}</span>
+  <span class="token punctuation">}</span>
+
+</code></pre></div><p>这里就是最终更新数据的地方，在执行了<code>this.get()</code>的时候，其实就执行了数据的更新，然后再执行回调函数，我们写的watch就是在这个地方触发的回调。</p> <h4 id="deep处理"><a href="#deep处理" class="header-anchor">#</a> deep处理</h4> <div class="language-js extra-class"><pre class="language-js"><code><span class="token comment">//watcher.js</span>
+  <span class="token keyword">get</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+  <span class="token operator">...</span>
+  <span class="token function">traverse</span><span class="token punctuation">(</span>value<span class="token punctuation">)</span>
+	<span class="token operator">...</span>
+  <span class="token keyword">return</span> value
+<span class="token punctuation">}</span>
+</code></pre></div><p>另外这里有个需要注意的地方就是<code>deep watch</code>的处理，在不添加deep的时候，对象深层改动是不能检测到的，这是因为现行版本的检测是<code>defineProperty</code>，所以是只能检测属性的修改，所以在对<code>obj.a</code>的数据进行修改的时候，只会触发<code>obj.a</code>的<code>set</code>，而不会触发obj的<code>set</code>（这一点，和Proxy代理是不一样的）。所以<code>obj</code>的<code>watcher</code>是检测不到属性的修改的。而<code>traverse(value)</code>这个方法就是去读取一次内部参数，触发这些参数的<code>get</code>，然后把<code>obj</code>收集的<code>subs</code>里面添加上子属性的<code>watcher</code>，这样就可以触发对应的watcher了</p></div> <footer class="page-edit"><!----> <!----></footer> <div class="page-nav"><p class="inner"><span class="prev">
       ←
       <a href="/vue-learn/" class="prev router-link-active">快速理解Vue的响应式</a></span> <!----></p></div> </main></div><div class="global-ui"></div></div>
-    <script src="/vue-learn/assets/js/app.10ce8ede.js" defer></script><script src="/vue-learn/assets/js/2.98137049.js" defer></script><script src="/vue-learn/assets/js/4.77d35eab.js" defer></script>
+    <script src="/vue-learn/assets/js/app.d84f0145.js" defer></script><script src="/vue-learn/assets/js/2.98137049.js" defer></script><script src="/vue-learn/assets/js/4.3f48630c.js" defer></script>
   </body>
 </html>

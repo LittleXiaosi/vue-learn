@@ -257,7 +257,9 @@ get () {
   } catch (e) {
    ...
   } finally {
-    ...
+    if (this.deep) {
+        traverse(value)
+    }
     popTarget()
     this.cleanupDeps()
   }
@@ -270,6 +272,7 @@ get () {
 + `pushTarget(this)，popTarget()`：这两个方法是把watcher添加进入dep里面，具体定义在`dep.js`里面
 + `value = this.getter.call(vm, vm)`：这里是执行了Watcher内的计算，得到新的的Value（或者只是触发依赖）对于渲染watcher而言，`this.getter`就是上文的`updateComponent`，`updateComponent`的内部我们先不深究，但是这个函数的执行，就会触发到所有的`data`内的属性的`get`。具体执行就是`dep.depend`
 +  `this.cleanupDeps()`：本质上是更新订阅（当然也会清除旧的订阅）不影响主要的逻辑，主要处理的是类似v-if的情况，避免额外的计算，保持依赖都是最新值。
++  `this.deep`：这个地方是处理对象监听的，具体细节请看Deep处理
 
 ```js
 //dep.js
@@ -334,6 +337,10 @@ addSub (sub: Watcher) {
 
 所以这个地方需要稍微注意一下，我们在原理展示里面没有这么复杂，只需要subs收集watcher就可以了，但是Vue真实处理的时候是双向收集的，dep收集watcher，而watcher也收集dep。
 
+dep.subs收集watcher是因为任何一个属性的修改，都需要触发所有的计算。
+
+watcher.deps收集dep是因为任何的的重新计算，要触发对应回调函数。
+
 #### notify的执行
 
 我们到目前为止已经完成了依赖收集的过程，现在我们再来看看派发过程是怎么处理的。在数据有修改的时候，实际上是触发了set的`notify()`
@@ -375,8 +382,6 @@ export function queueWatcher (watcher: Watcher) {
     if (!flushing) {
       queue.push(watcher)
     } else {
-      // if already flushing, splice the watcher based on its id
-      // if already past its id, it will be run next immediately.
       let i = queue.length - 1
       while (i > index && queue[i].id > watcher.id) {
         i--
@@ -395,7 +400,86 @@ export function queueWatcher (watcher: Watcher) {
 
 这里有几个比较复杂的注意项：
 
-+ `has[id]`：这个判断是为了保证，一个watcher对象被添加一次。举个例子，我们一个组件只有一个renderWatcher，这一个RenderWatcher在组件内data在多处修改时，应该只需要计算一次。
-+ `flushing`：状态值，当前是否正在进行watcher的计算
++ `has[id]`：这个判断是为了保证，一个`watcher`对象被添加一次。举个例子，我们一个组件只有一个`renderWatcher`，这一个`RenderWatcher`在组件内`data`在多处修改时，应该只需要计算一次。
++ `flushing`：状态值，当前是否正在进行`watcher`的计算，这个地方如果为`false`，说明正在计算，新增加的`watcher`会经过排序，插入到`queue`里面
 + `queue`：存储所有需要计算的watcher
-+ `nextTick`：下一个`tick`再执行这些`watcher`
++ `nextTick`：下一个`tick`再执行这些`watcher`，默认情况下，执行的就是异步刷新
+
+```JS
+//scheduler.js 
+
+function flushSchedulerQueue () {
+  currentFlushTimestamp = getNow()
+  flushing = true
+  let watcher, id
+
+  queue.sort((a, b) => a.id - b.id)
+
+  // do not cache length because more watchers might be pushed
+  // as we run existing watchers
+  for (index = 0; index < queue.length; index++) {
+    watcher = queue[index]
+    if (watcher.before) {
+      watcher.before()
+    }
+    id = watcher.id
+    has[id] = null
+    watcher.run()
+    ...
+  }
+	...
+  resetSchedulerState()
+  ...
+}
+```
+
+这里就是执行对于queue进行遍历，中间有几点比较值得注意
+
++   `queue.sort`：不论是这个阶段，还是之前插入阶段，watcher的排序都是保证从小到大的，这是因为
+  + 组件渲染是先父后子，所以id小的是父组件，prop传参也是从父到子，watcher计算顺序需要与数据流动顺序保持一致，不然可能导致子组件的响应式计算值是有问题的。
+  + `RenderWatcher`是在`$mount`阶段实例化的，但是`UserWatcher`是在`initWatcher`阶段产生的，所以`UserWatcher`的`id`会比`RenderWatcher`小，优先计算`UserWatcher`也是为了保证`RenderWatcher`计算出来的最终渲染数据正确
+  + 如果一个组件在父组件执行阶段被销毁了，这个组件下的所有watcher的active属性就会被设置为false，之后的watcher都不会再进行计算了
++ `watcher.before()`：在`new Watcher`的时候，传入的参数，默认的`RenderWatcher`会有这个参数，是`beforeUpdate`钩子函数
++ `has[id] = null`，  `resetSchedulerState()`：清除当前这个tick里面的所有的需要计算的watcher，所以当下次数据变化的时候，所有的watcher又是新的一轮了。
+
+```js
+// watcher.js		from:watcher.run()
+  run () {
+    if (this.active) {
+      const value = this.get()
+      if (value !== this.value ||isObject(value) ||this.deep) {
+        // set new value
+        const oldValue = this.value
+        this.value = value
+        if (this.user) {
+          try {
+            this.cb.call(this.vm, value, oldValue)
+          } catch (e) {
+            handleError(e, this.vm, `callback for watcher "${this.expression}"`)
+          }
+        } else {
+          this.cb.call(this.vm, value, oldValue)
+        }
+      }
+    }
+  }
+
+```
+
+这里就是最终更新数据的地方，在执行了`this.get()`的时候，其实就执行了数据的更新，然后再执行回调函数，我们写的watch就是在这个地方触发的回调。
+
+#### deep处理
+```js
+//watcher.js
+  get () {
+  ...
+  traverse(value)
+	...
+  return value
+}
+```
+
+另外这里有个需要注意的地方就是`deep watch`的处理，在不添加deep的时候，对象深层改动是不能检测到的，这是因为现行版本的检测是`defineProperty`，所以是只能检测属性的修改，所以在对`obj.a`的数据进行修改的时候，只会触发`obj.a`的`set`，而不会触发obj的`set`（这一点，和Proxy代理是不一样的）。所以`obj`的`watcher`是检测不到属性的修改的。而`traverse(value)`这个方法就是去读取一次内部参数，触发这些参数的`get`，然后把`obj`收集的`subs`里面添加上子属性的`watcher`，这样就可以触发对应的watcher了
+
+
+

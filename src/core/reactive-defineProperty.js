@@ -1,4 +1,4 @@
-let data = { price: 5, quantity: 2 };
+let data = { price: 5, quantity: 2,obj:{a:1} };
 let target = null;
 
 // Our simple Dep class
@@ -36,6 +36,27 @@ Object.keys(data).forEach(key => {
       dep.notify(); // <-- Re-run stored functions
     }
   });
+});
+
+// Go through each of our data properties
+Object.keys(data.obj).forEach(key => {
+    let internalValue = data[key];
+
+    // Each property gets a dependency instance
+    const dep = new Dep();
+
+    Object.defineProperty(data, key, {
+        get() {
+            debugger;
+            dep.depend(); // <-- Remember the target we're running
+            return internalValue;
+        },
+        set(newVal) {
+            debugger;
+            internalValue = newVal;
+            dep.notify(); // <-- Re-run stored functions
+        }
+    });
 });
 
 // The code to watch to listen for reactive properties
