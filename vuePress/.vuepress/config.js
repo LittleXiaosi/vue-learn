@@ -15,7 +15,8 @@ module.exports = {
     themeConfig: {
         sidebar: [
             '/',
-            'reactive-in-vue'
+            'reactive-in-vue',
+            'compile-render'
         ],
         sidebarDepth: 3,
     }
