@@ -138,8 +138,6 @@ var render = function() {
 
 3. 当我们执行`vm._render()`的时候，就是在执行上面这个`render`函数，所以在这个时候，我们就访问到了`vm.obj.a`在这个时候完成了数据的访问，从而实现了`dep.depend`的触发。
 
-
-
 ## JSX支持
 
 在使用[https://github.com/vuejs/babel-preset-vue](https://github.com/vuejs/babel-preset-vue)这个插件的时候，可以支持直接JSX的写法：
@@ -153,3 +151,26 @@ render(h) {
 ```
 
 但是不建议这么写，不如直接把里面的内容作为`.vue`文件来引用的直观，而且IDE默认对这种写法，是报错的，排版也是乱的。
+
+## Functional 组件
+
+之前我们提到了，每一个组件其实就是一个Vue实例，同时也会对应一个render函数，但是其实，如果我们提供的是一个函数式组建的话，将会不太一样，
+
+```js
+//一般Render函数组件 
+Vue.component('big-topic', {
+    render(h) { 
+      return h('h1', 'Topic: ' + this.$slots.default)
+    }
+ })
+
+//Functional Render组件
+Vue.component('big-topic', {
+  functional: true,  // <----- 
+  render(h, context) { // Notice the new context parameter 
+    return h('h1', context.slots().default) 
+  }
+})
+```
+
+对于函数式组件而言，是不会生成Vue实例的，所以也不能使用this指针对象，但是同时，因为本身只是一个生成Vnode的函数，所以开销小很多，想象一下，如果你有一个`<ul>`，里面有100个`<li>`，而这些`<li>`如果使用Functional 组件的话，将会减少100个Vue实例，这无疑是减少了很多额外开销（但是注意，Functional组件因为没有Vue实例，所以数据不是响应式的，毕竟也没有`this`）
