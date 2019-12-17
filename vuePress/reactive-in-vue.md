@@ -130,7 +130,7 @@ updateComponent = () => {
 
 这里就是执行数据的重新计算函数，本质上会接受两个参数
 
-+ vm._render()：返回值是一个Vnode，用来重新渲染页面
++ vm._render()：返回值是一个Vnode，用来重新渲染页面，而在执行render函数的时候，就会把render函数内定义的所有prop和data访问一遍，也就是在这个时候，完成了所有的data和prop的响应式收集触发。
 + hydrating：状态位，用来判断是不是第一次渲染（计算量不同）
 
 ```js

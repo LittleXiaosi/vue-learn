@@ -7,7 +7,7 @@
     <meta name="description" content="">
     
     
-    <link rel="preload" href="/vue-learn/assets/css/0.styles.d467352b.css" as="style"><link rel="preload" href="/vue-learn/assets/js/app.06b834f0.js" as="script"><link rel="preload" href="/vue-learn/assets/js/2.98137049.js" as="script"><link rel="preload" href="/vue-learn/assets/js/4.6bdd0248.js" as="script"><link rel="prefetch" href="/vue-learn/assets/js/3.ae97eef9.js"><link rel="prefetch" href="/vue-learn/assets/js/5.c90b2ea4.js"><link rel="prefetch" href="/vue-learn/assets/js/6.a98a30d6.js"><link rel="prefetch" href="/vue-learn/assets/js/7.f958185c.js"><link rel="prefetch" href="/vue-learn/assets/js/8.f731ac16.js">
+    <link rel="preload" href="/vue-learn/assets/css/0.styles.d467352b.css" as="style"><link rel="preload" href="/vue-learn/assets/js/app.12c2e726.js" as="script"><link rel="preload" href="/vue-learn/assets/js/2.98137049.js" as="script"><link rel="preload" href="/vue-learn/assets/js/4.03efa99b.js" as="script"><link rel="prefetch" href="/vue-learn/assets/js/3.ae97eef9.js"><link rel="prefetch" href="/vue-learn/assets/js/5.c90b2ea4.js"><link rel="prefetch" href="/vue-learn/assets/js/6.7f201d43.js"><link rel="prefetch" href="/vue-learn/assets/js/7.62a6db67.js"><link rel="prefetch" href="/vue-learn/assets/js/8.f731ac16.js">
     <link rel="stylesheet" href="/vue-learn/assets/css/0.styles.d467352b.css">
   </head>
   <body>
@@ -47,7 +47,7 @@
 <span class="token function-variable function">updateComponent</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
       vm<span class="token punctuation">.</span><span class="token function">_update</span><span class="token punctuation">(</span>vm<span class="token punctuation">.</span><span class="token function">_render</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> hydrating<span class="token punctuation">)</span>
 <span class="token punctuation">}</span>
-</code></pre></div><p>这里就是执行数据的重新计算函数，本质上会接受两个参数</p> <ul><li>vm._render()：返回值是一个Vnode，用来重新渲染页面</li> <li>hydrating：状态位，用来判断是不是第一次渲染（计算量不同）</li></ul> <div class="language-js extra-class"><pre class="language-js"><code><span class="token comment">//lifecycle.js</span>
+</code></pre></div><p>这里就是执行数据的重新计算函数，本质上会接受两个参数</p> <ul><li>vm._render()：返回值是一个Vnode，用来重新渲染页面，而在执行render函数的时候，就会把render函数内定义的所有prop和data访问一遍，也就是在这个时候，完成了所有的data和prop的响应式收集触发。</li> <li>hydrating：状态位，用来判断是不是第一次渲染（计算量不同）</li></ul> <div class="language-js extra-class"><pre class="language-js"><code><span class="token comment">//lifecycle.js</span>
 vm<span class="token punctuation">.</span>$el <span class="token operator">=</span> vm<span class="token punctuation">.</span><span class="token function">__patch__</span><span class="token punctuation">(</span>prevVnode<span class="token punctuation">,</span> vnode<span class="token punctuation">)</span>
 </code></pre></div><p>在这个地方，处理真正的渲染成HTML节点并且挂在对应的真实dom上面。</p> <p>执行完所有的这一切，第一次生命周期就结束了。这里会返回一个VM，然后我们重新回到响应式内部看看代码，因为Watcher虽然初始化完了，但是我们的<code>updateComponent</code>只执行完了第一次计算(其实已经完成了响应式收集)，之后的计算就要回到响应式来触发了。</p> <h3 id="src-core-observer"><a href="#src-core-observer" class="header-anchor">#</a> src/core/observer/</h3> <p>这部分相对比较复杂，这里面主要是响应式的定义代码，但是需要注意的是，这里面只是<strong>定义</strong>了响应式对象，真正要执行起来是需要new Watcher之后，getter和setter触发才行</p> <div class="language-js extra-class"><pre class="language-js"><code><span class="token comment">//index.js</span>
 ob <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">Observer</span><span class="token punctuation">(</span>value<span class="token punctuation">)</span>		<span class="token comment">// value === data</span>
@@ -248,6 +248,6 @@ Dep<span class="token punctuation">.</span>target <span class="token operator">=
       <a href="/vue-learn/" class="prev router-link-active">快速理解Vue的响应式</a></span> <span class="next"><a href="/vue-learn/compile-render.html">Vue的组件编译</a>
       →
     </span></p></div> </main></div><div class="global-ui"></div></div>
-    <script src="/vue-learn/assets/js/app.06b834f0.js" defer></script><script src="/vue-learn/assets/js/2.98137049.js" defer></script><script src="/vue-learn/assets/js/4.6bdd0248.js" defer></script>
+    <script src="/vue-learn/assets/js/app.12c2e726.js" defer></script><script src="/vue-learn/assets/js/2.98137049.js" defer></script><script src="/vue-learn/assets/js/4.03efa99b.js" defer></script>
   </body>
 </html>

@@ -7,8 +7,6 @@
 
 <script>
     // @ is an alias to /src
-
-
     export default {
         name: 'home',
 
@@ -24,9 +22,7 @@
                 this.obj.a = 2;
             }
         },
-        watch: {
-
-        }
+        watch: {}
     }
 </script>
 

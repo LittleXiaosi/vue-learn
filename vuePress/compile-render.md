@@ -20,9 +20,9 @@
 
 ​		另一个需要使用`Virtual DOM`的原因是，我们可以把`Virtual DOM`视为一个数据蓝图，当我们需要修改某个数据的时候，其实可以先对比一下蓝图，然后再修改**差异**部分，这样也把`DOM`操作的开销降低不少。
 
-##渲染步骤与生命周期
+## 渲染步骤与生命周期
 
-#### 渲染步骤
+### 渲染步骤
 
 
 1. Template-->Render Function
@@ -33,12 +33,123 @@
 3. Vnode-->Browser
    + Vnode最后更新到Browser的时候，是差异更新的，不是全量替换
 
-#### 生命周期中的渲染
+### 生命周期中的渲染
 
+1. 初始化事件和生命周期
 ```js
-//生命周期
+   // core/instance/init.js 
+   initLifecycle(vm)				//执行初始化生命周期
+   initEvents(vm) 					//执行初始化事件
+```
+   + 执行钩子函数**beforeCreate**
 
+2. 初始化数据
+```js
+   // core/instance/init.js 
+   initInjections(vm) 	//在响应式数据初始化之前处理注入数据
+   initState(vm)				//初始化响应式数据（data，prop，method，watch）
 ```
 
+   + 执行钩子函数**created**
+
+3. Template-->render
+```js 
+vm.$mount(vm.$options.el)   	//Runtime+Compiler版本在这里处理template，变为render函数
+webpack compile								//Runtime only版本webpack直接编译成render函数
+
+Vue.prototype.$mount = function (									
+    el?: string | Element,
+  hydrating?: boolean
+  ): Component {
+    el = el && inBrowser ? query(el) : undefined
+    return mountComponent(this, el, hydrating)							//两个版本都在这里接受render函数
+}
+  
+```
++ 执行钩子函数**beforeMount**
++ 这里需要注意一下，如果是Runtime+Compiler版本的vue，会进入两次$mount函数，
+     + 第一次执行`$mount`是处理**Template转化为render函数**，代码在`/src/platforms/web/entry-runtime-with-compiler.js`中，之后通过`return mount.call(this, el, hydrating)`会再执行一次`$mount`函数
+     + 第二次执行`$mount`就是上面这个`mountComponent`函数的执行，代码在`/src/platforms/web/runtime/index.js`里面。然后执行`mountComponent`函数来触发组件挂载
+
+4. Render-->VNode-->Dom
+```js   
+   updateComponent = () => {
+     vm._update(vm._render(), hydrating)
+   }
+```
+
+   + 执行钩子函数**mounted**
+   + PS：这是响应式数据更新的**核心方法**，可以查看[响应式实现](./reactive-in-vue.md)
+
+5. 完成一次数据挂载的所有流程（如果数据再有更新，就是直接触发第四步了）
+
+## Render函数与响应式
+
+这个时候我们再看一下刚刚的步骤四，有没有突然意识到，`vm._render()`和响应式实现似乎是有关系的？
+
+![示意图](https://tva1.sinaimg.cn/large/006tNbRwgy1g9zkc71e41j31d80pcgpe.jpg)
+
+我们看看这张图（来自`www.vuemastery.com`）我们上一回响应式里面，并没有非常清楚的提到，`render watcher`是怎么触发数据响应式的（还记得`render watch`的渲染函数就是`updateComponent`么？），根据现在我们对`render`函数的理解，就比较容易懂了
+
+1. 首先先通过Template-->Render转化过程，每个Vue组件都自带了一个`render`函数，看一下我们这个demo
+
+```vue
+<!-- home.vue -->
+<template>
+    <div id="app">
+        <span>{{obj.a}}</span>
+        <button @click="setObj">setObj</button>
+    </div>
+</template>
+
+<script>
+    export default {
+        name: 'home',
+        data: () => {
+            return {
+                obj: {
+                    a: 1,
+                }
+            }
+        },
+        methods: {
+            setObj: function () {
+                this.obj.a = 2;
+            }
+        },
+        watch: {}
+    }
+</script>
+```
+
+2. 这个`home.vue`将会编译获得以下这么一个render函数，
+
+```js
+var render = function() {
+  var _vm = this
+  var _h = _vm.$createElement
+  var _c = _vm._self._c || _h
+  return _c("div", { attrs: { id: "app" } }, [
+    _c("span", [_vm._v(_vm._s(_vm.obj.a))]),					//注意这里的obj.a，就是我定义的
+    _c("button", { on: { click: _vm.setObj } }, [_vm._v("setObj")])
+  ])
+}
+```
+
+3. 当我们执行`vm._render()`的时候，就是在执行上面这个`render`函数，所以在这个时候，我们就访问到了`vm.obj.a`在这个时候完成了数据的访问，从而实现了`dep.depend`的触发。
 
 
+
+## JSX支持
+
+在使用[https://github.com/vuejs/babel-preset-vue](https://github.com/vuejs/babel-preset-vue)这个插件的时候，可以支持直接JSX的写法：
+
+```js
+render(h) {
+    return (
+        <div id="people" class="sideBar">Gregg and Chase</div>
+    )
+},
+```
+
+但是不建议这么写，不如直接把里面的内容作为`.vue`文件来引用的直观，而且IDE默认对这种写法，是报错的，排版也是乱的。
