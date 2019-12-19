@@ -67,7 +67,7 @@ Vue.prototype.$mount = function (
   
 ```
 + 执行钩子函数**beforeMount**
-+ 这里需要注意一下，如果是Runtime+Compiler版本的vue，会进入两次$mount函数，
++ 这里需要注意一下，如果是Runtime+Compiler版本的vue，会进入两次$mount函数（详细内容，可以看下一章：[Vue的组件挂载](./mounting-process.md)
      + 第一次执行`$mount`是处理**Template转化为render函数**，代码在`/src/platforms/web/entry-runtime-with-compiler.js`中，之后通过`return mount.call(this, el, hydrating)`会再执行一次`$mount`函数
      + 第二次执行`$mount`就是上面这个`mountComponent`函数的执行，代码在`/src/platforms/web/runtime/index.js`里面。然后执行`mountComponent`函数来触发组件挂载
 
@@ -137,6 +137,8 @@ var render = function() {
 ```
 
 3. 当我们执行`vm._render()`的时候，就是在执行上面这个`render`函数，所以在这个时候，我们就访问到了`vm.obj.a`在这个时候完成了数据的访问，从而实现了`dep.depend`的触发。
+
+PS：如果你想知道更多的细节，可以看下一节：[Vue的组件挂载](./mounting-process.md)
 
 ## JSX支持
 

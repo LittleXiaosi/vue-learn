@@ -16,7 +16,8 @@ module.exports = {
         sidebar: [
             '/',
             'reactive-in-vue',
-            'compile-render'
+            'compile-render',
+            'mounting-process'
         ],
         sidebarDepth: 3,
     }
