@@ -15,9 +15,10 @@ module.exports = {
     themeConfig: {
         sidebar: [
             '/',
-            'reactive-in-vue',
-            'compile-render',
-            'mounting-process'
+            'vue-reactive-in-vue',
+            'vue-compile-render',
+            'vue-mounting-process',
+            'react-compare-vue'
         ],
         sidebarDepth: 3,
     }

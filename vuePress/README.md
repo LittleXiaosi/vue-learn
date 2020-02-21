@@ -73,7 +73,7 @@
    + depend：收集依赖，通过这个方法来告知dep，什么情况下需要触发数据重新计算
    + notify：执行数据的重新计算（需要注意的是，依赖可能多个，重新计算也可能多次）
 2. watcher：数据监听器，本质上是一个依赖关系的描述，也就是说**dep**需要收集的其实就是**watcher**，有了**watcher**之后，就知道数据之间的关系，比如上面的Demo就是这个**watcher**描述了`data.total`的值是由`data.price * data.quantity`得来。所以`data.total`对`data.price`和`data.quantity`是存在依赖关系。如果`data.price`或者`data.quantity`数据变化，`data.total`需要重新计算。
-3. defineProperty：数据响应式初始化（或者说数据钩子化），有了dep和watcher之后，数据就知道了应该要怎么处理重新计算，但是还不知道应该什么时候执行。defineProperty就是告诉数据应该在什么时候执行
+3. **defineProperty**：数据响应式初始化（或者说数据钩子化），有了dep和watcher之后，数据就知道了应该要怎么处理重新计算，但是还不知道应该什么时候执行。defineProperty就是告诉数据应该在什么时候执行
    + get：**被依赖数据**（data.price ， data.quantity）被访问的时候，就收集依赖，凡是依赖了当前数据的数据（data.total），在当前数据改变的时候，都要重新计算。
    + set：**被依赖数据**（data.price ， data.quantity）在重新被赋值的时候，就把之前收集到的所有需要触发重新计算的地方（watcher）统统重新计算一次。
 
